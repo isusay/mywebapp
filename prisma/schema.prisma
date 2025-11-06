@@ -1,0 +1,117 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  INSTRUCTOR
+  STUDENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      UserRole @default(STUDENT)
+  status    UserStatus @default(ACTIVE)
+  avatar    String?
+  bio       String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations for course management
+  coursesCreated Course[] @relation("CourseCreator")
+  enrollments    Enrollment[]
+
+  @@map("users")
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  content     String?
+  duration    Int      // in hours
+  price       Float    @default(0.0)
+  maxStudents Int      @default(50)
+  currentEnrollment Int @default(0)
+  status      String   @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  thumbnail   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  instructorId String
+  instructor   User   @relation("CourseCreator", fields: [instructorId], references: [id])
+  enrollments  Enrollment[]
+  categories   CourseCategory[]
+
+  @@map("courses")
+}
+
+model Category {
+  id          String @id @default(cuid())
+  name        String @unique
+  description String?
+  color       String?
+
+  courses CourseCategory[]
+
+  @@map("categories")
+}
+
+model CourseCategory {
+  id        String @id @default(cuid())
+  courseId  String
+  categoryId String
+  createdAt DateTime @default(now())
+
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, categoryId])
+  @@map("course_categories")
+}
+
+model Enrollment {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  status    String   @default("ENROLLED") // ENROLLED, COMPLETED, DROPPED, PENDING
+  progress  Float    @default(0.0) // 0.0 to 1.0
+  enrolledAt DateTime @default(now())
+  completedAt DateTime?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@map("enrollments")
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("password_resets")
+}
